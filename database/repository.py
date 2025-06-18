@@ -5,7 +5,17 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import Channel, ChannelType, Post, PostChannel, Template, User
+from .models import (
+    Base,
+    Channel,
+    ChannelType,
+    Post,
+    PostChannel,
+    RegistrationCode,
+    Template,
+    User,
+    UserRole,
+)
 
 
 class Repository:
@@ -17,11 +27,32 @@ class Repository:
         stmt = select(User).where(User.tg_id == tg_id)
         return await self.session.scalar(stmt)
 
-    async def create_user(self, role: str, tg_id: int, tg_username: str | None = None) -> User:
+    async def get_user(self, user_id: int) -> User | None:
+        stmt = select(User).where(User.id == user_id)
+        return await self.session.scalar(stmt)
+
+    async def create_user(
+        self,
+        role: UserRole,
+        tg_id: int,
+        tg_username: str | None = None,
+    ) -> User:
         user = User(role=role, tg_id=tg_id, tg_username=tg_username)
         self.session.add(user)
         await self.session.flush()
         return user
+
+    async def get_users(self) -> list[User]:
+        result = await self.session.scalars(select(User))
+        return list(result)
+
+    async def modify_user(self, user_id: int, role: str | UserRole) -> None:
+        user = await self.get_user(user_id)
+        if user:
+            if isinstance(role, str):
+                role = UserRole[role]
+            user.role = role
+            await self.session.flush()
 
     # Channels
     async def get_channel_by_chat_id(self, chat_id: int) -> Channel | None:
@@ -38,6 +69,16 @@ class Repository:
         self.session.add(channel)
         await self.session.flush()
         return channel
+
+    async def get_channels(self) -> list[Channel]:
+        result = await self.session.scalars(select(Channel))
+        return list(result)
+
+    async def delete_channel(self, chat_id: int) -> None:
+        channel = await self.get_channel_by_chat_id(chat_id)
+        if channel:
+            await self.session.delete(channel)
+            await self.session.flush()
 
     # Templates
     async def get_template(self, template_id: int) -> Template | None:
@@ -91,3 +132,36 @@ class Repository:
             post.is_sent = True
             post.tg_message_id = tg_message_id
             await self.session.flush()
+
+    # Registration codes
+    async def add_code(
+        self,
+        code: str,
+        created_by: int,
+        expires_at: datetime | None = None,
+        max_uses: int = 1,
+    ) -> RegistrationCode:
+        code_obj = RegistrationCode(
+            code=code,
+            created_by=created_by,
+            expires_at=expires_at,
+            max_uses=max_uses,
+        )
+        self.session.add(code_obj)
+        await self.session.flush()
+        return code_obj
+
+    async def get_code(self, code: str | int) -> RegistrationCode | None:
+        if isinstance(code, int):
+            stmt = select(RegistrationCode).where(RegistrationCode.id == code)
+        else:
+            stmt = select(RegistrationCode).where(RegistrationCode.code == code)
+        return await self.session.scalar(stmt)
+
+    async def get_codes(self) -> list[RegistrationCode]:
+        result = await self.session.scalars(select(RegistrationCode))
+        return list(result)
+
+    async def update_object(self, obj: Base) -> None:
+        self.session.add(obj)
+        await self.session.flush()
