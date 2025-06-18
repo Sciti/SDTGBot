@@ -1,0 +1,15 @@
+aiogram
+aiogram-dialog
+redis
+requests
+sqlalchemy
+alembic
+psycopg2-binary
+asyncpg
+python-dotenv
+pydantic
+pydantic-settings
+taskiq
+taskiq-redis
+taskiq-aio-pika
+taskiq-aiogram
