@@ -16,6 +16,12 @@ class ChannelType(enum.Enum):
     CHANNEL = "channel"
 
 
+class UserRole(enum.Enum):
+    ADMIN = "admin"
+    MANAGER = "manager"
+    CLIENT = "client"
+
+
 class PostChannel(Base):
     __tablename__ = "posts_channels"
 
@@ -27,7 +33,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    role: Mapped[str] = mapped_column(String(length=50), nullable=False)
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
     tg_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     tg_username: Mapped[str | None] = mapped_column(String(length=255), nullable=True)
 
@@ -81,5 +87,22 @@ class Post(Base):
         secondary="posts_channels",
         back_populates="posts",
     )
+
+
+class RegistrationCode(Base):
+    __tablename__ = "registration_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(length=32), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    max_uses: Mapped[int] = mapped_column(Integer, default=1)
+    used_count: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    used_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+    creator: Mapped["User"] = relationship(foreign_keys=[created_by])
+    user: Mapped["User" | None] = relationship(foreign_keys=[used_by])
 
 
