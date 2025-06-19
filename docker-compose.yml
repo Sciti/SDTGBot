@@ -39,7 +39,7 @@ services:
     depends_on:
       - db
       - redis
-    command: taskiq worker utils.tasks:broker
+    command: taskiq worker tasks:broker
     networks:
       sd_net:
         aliases:
