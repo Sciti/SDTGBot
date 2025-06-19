@@ -33,7 +33,7 @@ async def generate_code(
     random_bytes = os.urandom(16)
     token = base64.urlsafe_b64encode(random_bytes).rstrip(b"=")
     code = token.decode("utf-8")
-
+    
     user = await repo.get_user_by_tg_id(callback.from_user.id)
     code_obj = await repo.add_code(code=code, created_by=user.id)
     code_obj.expires_at = code_obj.created_at + datetime.timedelta(minutes=1)
@@ -64,6 +64,7 @@ async def code_getter(dialog_manager: DialogManager, **_kwargs):
     ):
         code_obj.is_active = False
         await repo.update_object(code_obj)
+
     return {
         "code": code_obj.code,
         "created_at": code_obj.created_at,
