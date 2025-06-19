@@ -82,7 +82,7 @@ class Post(Base):
     template_id: Mapped[int | None] = mapped_column(ForeignKey("templates.id", ondelete="SET NULL"))
 
     author: Mapped["User"] = relationship(back_populates="posts")
-    template: Mapped["Template" | None] = relationship(back_populates="posts")
+    template: Mapped[Template | None] = relationship(back_populates="posts")
     channels: Mapped[list["Channel"]] = relationship(
         secondary="posts_channels",
         back_populates="posts",
@@ -103,6 +103,6 @@ class RegistrationCode(Base):
     used_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])
-    user: Mapped["User" | None] = relationship(foreign_keys=[used_by])
+    user: Mapped[User | None] = relationship(foreign_keys=[used_by])
 
 
