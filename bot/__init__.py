@@ -18,8 +18,8 @@ from bot.dialogs.templates import templates_dialog
 from bot.dialogs.administration import administration_dialog
 from bot.states import MainMenuSG
 from database.models import UserRole
-from database import async_session_factory, redis as redis_connection
-from database.repository import Repository
+from database import redis as redis_connection
+from database import repository as repo
 from config import settings
 from tasks import broker as taskiq_broker
 
@@ -39,7 +39,7 @@ dp = Dispatcher(storage=storage)
 router = Router()
 
 
-async def process_code_registration(repo: Repository, message: Message, code: str) -> None:
+async def process_code_registration(message: Message, code: str) -> None:
     code_obj = await repo.get_code(code)
     if not code_obj:
         raise ValueError("Неизвестный код")
@@ -69,19 +69,17 @@ async def process_code_registration(repo: Repository, message: Message, code: st
 @router.message(CommandStart(), F.chat.type == ChatType.PRIVATE)
 async def cmd_start(message: Message, dialog_manager: DialogManager) -> None:
     code = message.text.removeprefix("/start").strip()
-    async with async_session_factory() as session:
-        repo = Repository(session)
-        if code:
-            try:
-                await process_code_registration(repo, message, code)
-            except ValueError as err:
-                await message.answer(str(err))
-                return
-        user = await repo.get_user_by_tg_id(message.from_user.id)
-        if not user or (
-            not code and user.role not in {UserRole.ADMIN, UserRole.MANAGER}
-        ):
+    if code:
+        try:
+            await process_code_registration(message, code)
+        except ValueError as err:
+            await message.answer(str(err))
             return
+    user = await repo.get_user_by_tg_id(message.from_user.id)
+    if not user or (
+        not code and user.role not in {UserRole.ADMIN, UserRole.MANAGER}
+    ):
+        return
     await dialog_manager.start(MainMenuSG.menu, mode=StartMode.RESET_STACK)
 
 
