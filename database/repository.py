@@ -5,6 +5,8 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from . import async_session_factory
+
 from .models import (
     Base,
     Channel,
@@ -19,8 +21,24 @@ from .models import (
 
 
 class Repository:
-    def __init__(self, session: AsyncSession) -> None:
-        self.session = session
+    def __init__(self) -> None:
+        self.session: AsyncSession | None = None
+
+    async def __aenter__(self) -> "Repository":
+        self.session = async_session_factory()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        if self.session is None:
+            return
+        try:
+            if exc_type is None:
+                await self.session.commit()
+            else:
+                await self.session.rollback()
+        finally:
+            await self.session.close()
+        self.session = None
 
     # Users
     async def get_user_by_tg_id(self, tg_id: int) -> User | None:
