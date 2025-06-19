@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://redis:6379"
     REDIS_DB: int = 1
-    TASKIQ_REDIS_DB: int = 0
+    TASKIQ_REDIS_DB: int = 2
 
     LOG_DIR: str = "logs"
 

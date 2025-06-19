@@ -8,11 +8,13 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: botdb
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - sd_db_data:/var/lib/postgresql/data
     networks:
       sd_net:
         aliases:
           - sd_db
+    ports:
+      - 5432:5432
 
   redis:
     image: redis:7-alpine
@@ -20,14 +22,18 @@ services:
       sd_net:
         aliases:
           - sd_redis
+    ports:
+      - 6379:6379
 
   bot:
     build: .
-    env_file: .env
+    env_file: config/env/.env.docker
     depends_on:
       - db
       - redis
     command: python main.py
+    volumes:
+      - ./logs:/app/logs
     networks:
       sd_net:
         aliases:
@@ -35,18 +41,20 @@ services:
 
   worker:
     build: .
-    env_file: .env
+    env_file: config/env/.env.docker
     depends_on:
       - db
       - redis
     command: taskiq worker tasks:broker
+    volumes:
+      - ./logs:/app/logs
     networks:
       sd_net:
         aliases:
           - sd_worker
 
 volumes:
-  db_data:
+  sd_db_data:
 
 networks:
   sd_net:

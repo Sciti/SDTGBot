@@ -4,6 +4,7 @@ import datetime
 from logging import getLogger
 
 from aiogram import Bot, Dispatcher, F, Router
+from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatType
 from aiogram.filters import CommandStart
 from aiogram.types import Message, BotCommand
@@ -25,7 +26,12 @@ from tasks import broker as taskiq_broker
 
 logger = getLogger("bot")
 
-bot = Bot(token=settings.BOT_TOKEN, parse_mode="HTML")
+bot = Bot(
+    token=settings.BOT_TOKEN,
+    default=DefaultBotProperties(
+        parse_mode='HTML'
+    )
+)
 key_builder = DefaultKeyBuilder(prefix="sdtg", with_destiny=True)
 storage = RedisStorage(redis_connection, key_builder)
 dp = Dispatcher(storage=storage)
