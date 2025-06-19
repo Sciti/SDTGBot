@@ -18,7 +18,7 @@ from bot.dialogs.templates import templates_dialog
 from bot.dialogs.administration import administration_dialog
 from bot.states import MainMenuSG
 from database.models import UserRole
-from database import async_session_factory, redis as redis_connection
+from database import redis as redis_connection
 from database.repository import Repository
 from config import settings
 from tasks import broker as taskiq_broker
@@ -69,8 +69,7 @@ async def process_code_registration(repo: Repository, message: Message, code: st
 @router.message(CommandStart(), F.chat.type == ChatType.PRIVATE)
 async def cmd_start(message: Message, dialog_manager: DialogManager) -> None:
     code = message.text.removeprefix("/start").strip()
-    async with async_session_factory() as session:
-        repo = Repository(session)
+    async with Repository() as repo:
         if code:
             try:
                 await process_code_registration(repo, message, code)
