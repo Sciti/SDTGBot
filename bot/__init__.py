@@ -69,18 +69,18 @@ async def process_code_registration(repo: Repository, message: Message, code: st
 @router.message(CommandStart(), F.chat.type == ChatType.PRIVATE)
 async def cmd_start(message: Message, dialog_manager: DialogManager) -> None:
     code = message.text.removeprefix("/start").strip()
-    async with Repository() as repo:
-        if code:
-            try:
-                await process_code_registration(repo, message, code)
-            except ValueError as err:
-                await message.answer(str(err))
-                return
-        user = await repo.get_user_by_tg_id(message.from_user.id)
-        if not user or (
-            not code and user.role not in {UserRole.ADMIN, UserRole.MANAGER}
-        ):
+    repo = Repository()
+    if code:
+        try:
+            await process_code_registration(repo, message, code)
+        except ValueError as err:
+            await message.answer(str(err))
             return
+    user = await repo.get_user_by_tg_id(message.from_user.id)
+    if not user or (
+        not code and user.role not in {UserRole.ADMIN, UserRole.MANAGER}
+    ):
+        return
     await dialog_manager.start(MainMenuSG.menu, mode=StartMode.RESET_STACK)
 
 

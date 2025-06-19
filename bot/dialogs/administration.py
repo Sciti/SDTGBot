@@ -34,11 +34,11 @@ async def generate_code(
     token = base64.urlsafe_b64encode(random_bytes).rstrip(b"=")
     code = token.decode("utf-8")
 
-    async with Repository() as repo:
-        user = await repo.get_user_by_tg_id(callback.from_user.id)
-        code_obj = await repo.add_code(code=code, created_by=user.id)
-        code_obj.expires_at = code_obj.created_at + datetime.timedelta(minutes=1)
-        await repo.update_object(code_obj)
+    repo = Repository()
+    user = await repo.get_user_by_tg_id(callback.from_user.id)
+    code_obj = await repo.add_code(code=code, created_by=user.id)
+    code_obj.expires_at = code_obj.created_at + datetime.timedelta(minutes=1)
+    await repo.update_object(code_obj)
     dialog_manager.dialog_data["selected_code"] = code_obj.id
     await dialog_manager.switch_to(AdminSG.show_code)
 
@@ -57,15 +57,15 @@ async def code_getter(dialog_manager: DialogManager, **_kwargs):
     bot: Bot = dialog_manager.middleware_data.get("bot")
     bot_data = await bot.get_me()
     code_id = dialog_manager.dialog_data.get("selected_code")
-    async with Repository() as repo:
-        code_obj = await repo.get_code(int(code_id))
-        if (
-            code_obj.is_active
-            and code_obj.expires_at
-            and code_obj.expires_at < datetime.datetime.utcnow()
-        ):
-            code_obj.is_active = False
-            await repo.update_object(code_obj)
+    repo = Repository()
+    code_obj = await repo.get_code(int(code_id))
+    if (
+        code_obj.is_active
+        and code_obj.expires_at
+        and code_obj.expires_at < datetime.datetime.utcnow()
+    ):
+        code_obj.is_active = False
+        await repo.update_object(code_obj)
     return {
         "code": code_obj.code,
         "created_at": code_obj.created_at,
@@ -79,8 +79,8 @@ async def code_getter(dialog_manager: DialogManager, **_kwargs):
 
 
 async def codes_getter(**_):
-    async with Repository() as repo:
-        codes = await repo.get_codes()
+    repo = Repository()
+    codes = await repo.get_codes()
     return {"codes": codes}
 
 
@@ -90,28 +90,28 @@ async def on_user_select(
     dialog_manager: DialogManager,
     selected_item: str,
 ):
-    async with Repository() as repo:
-        user = await repo.get_user(int(selected_item))
+    repo = Repository()
+    user = await repo.get_user(int(selected_item))
     dialog_manager.dialog_data["selected_user"] = user.id
     await dialog_manager.switch_to(AdminSG.user_info)
 
 
 async def users_getter(dialog_manager: DialogManager, **_kwargs):
-    async with Repository() as repo:
-        users = await repo.get_users()
+    repo = Repository()
+    users = await repo.get_users()
     return {"users": users}
 
 
 async def user_info_getter(dialog_manager: DialogManager, **_kwargs):
     user_id = dialog_manager.dialog_data.get("selected_user")
-    async with Repository() as repo:
-        user = await repo.get_user(user_id)
+    repo = Repository()
+    user = await repo.get_user(user_id)
     return {"user": user}
 
 
 async def channels_getter(dialog_manager: DialogManager, **_kwargs):
-    async with Repository() as repo:
-        channels = await repo.get_channels()
+    repo = Repository()
+    channels = await repo.get_channels()
     return {"channels": channels}
 
 
@@ -127,8 +127,8 @@ async def on_channel_select(
 
 async def channel_info_getter(dialog_manager: DialogManager, **_kwargs):
     channel_id = dialog_manager.dialog_data.get("selected_channel")
-    async with Repository() as repo:
-        channel = await repo.get_channel_by_chat_id(channel_id)
+    repo = Repository()
+    channel = await repo.get_channel_by_chat_id(channel_id)
     return {"channel": channel}
 
 
@@ -138,8 +138,8 @@ async def delete_channel(
     dialog_manager: DialogManager,
 ):
     channel_id = dialog_manager.dialog_data.get("selected_channel")
-    async with Repository() as repo:
-        await repo.delete_channel(channel_id)
+    repo = Repository()
+    await repo.delete_channel(channel_id)
     await dialog_manager.switch_to(AdminSG.channels)
 
 
@@ -158,8 +158,8 @@ async def on_channel_id(message: types.Message, message_input: MessageInput, dia
     channel_type = models.ChannelType.CHANNEL
     if chat.type in {ChatType.GROUP, ChatType.SUPERGROUP}:
         channel_type = models.ChannelType.GROUP
-    async with Repository() as repo:
-        await repo.create_channel(chat_id=chat.id, channel_type=channel_type, title=chat.title)
+    repo = Repository()
+    await repo.create_channel(chat_id=chat.id, channel_type=channel_type, title=chat.title)
     await message.answer("Канал добавлен")
     await dialog_manager.switch_to(AdminSG.channels)
 
@@ -170,11 +170,11 @@ async def on_role_select(
     dialog_manager: DialogManager,
     selected_item: str,
 ):
-    async with Repository() as repo:
-        await repo.modify_user(
-            user_id=dialog_manager.dialog_data["selected_user"],
-            role=selected_item,
-        )
+    repo = Repository()
+    await repo.modify_user(
+        user_id=dialog_manager.dialog_data["selected_user"],
+        role=selected_item,
+    )
     await dialog_manager.switch_to(AdminSG.user_info)
 
 
