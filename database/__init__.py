@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import (
 
 from .models import Base
 
-__all__ = ["engine", "async_session_factory", "AsyncSession", "Base"]
+from redis.asyncio import Redis
+
+__all__ = ["engine", "async_session_factory", "AsyncSession", "Base", "redis"]
 
 metadata = MetaData()
 
@@ -26,3 +28,7 @@ engine: AsyncEngine = create_async_engine(
 )
 
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+redis: Redis = Redis.from_url(
+    f"{settings.REDIS_URL}/{settings.REDIS_DB}", decode_responses=True
+)

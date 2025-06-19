@@ -1,0 +1,111 @@
+from __future__ import annotations
+
+import datetime
+from logging import getLogger
+
+from aiogram import Bot, Dispatcher, F, Router
+from aiogram.enums import ChatType
+from aiogram.filters import CommandStart
+from aiogram.types import Message, BotCommand
+from aiogram.fsm.storage.redis import RedisStorage
+from aiogram.fsm.storage.base import DefaultKeyBuilder
+from aiogram_dialog import DialogManager, setup_dialogs, StartMode
+
+from bot.dialogs.menu import main_menu_dialog
+from bot.dialogs.post import post_dialog
+from bot.dialogs.templates import templates_dialog
+from bot.dialogs.administration import administration_dialog
+from bot.states import MainMenuSG
+from database.models import UserRole
+from database import async_session_factory, redis as redis_connection
+from database.repository import Repository
+from config import settings
+from tasks import broker as taskiq_broker
+
+
+logger = getLogger("bot")
+
+bot = Bot(token=settings.BOT_TOKEN, parse_mode="HTML")
+key_builder = DefaultKeyBuilder(prefix="sdtg", with_destiny=True)
+storage = RedisStorage(redis_connection, key_builder)
+dp = Dispatcher(storage=storage)
+
+router = Router()
+
+
+async def process_code_registration(repo: Repository, message: Message, code: str) -> None:
+    code_obj = await repo.get_code(code)
+    if not code_obj:
+        raise ValueError("Неизвестный код")
+    if code_obj.expires_at and code_obj.expires_at < datetime.datetime.utcnow():
+        raise ValueError("Срок действия кода истёк")
+    if not code_obj.is_active:
+        raise ValueError("Код не активен")
+    if code_obj.used_count >= code_obj.max_uses:
+        raise ValueError("Код уже использован")
+
+    user = await repo.get_user_by_tg_id(message.from_user.id)
+    if not user:
+        user = await repo.create_user(
+            role=UserRole.CLIENT,
+            tg_id=message.from_user.id,
+            tg_username=message.from_user.username,
+        )
+    else:
+        user.role = UserRole.CLIENT
+        await repo.update_object(user)
+
+    code_obj.used_count += 1
+    code_obj.used_by = user.id
+    await repo.update_object(code_obj)
+
+
+@router.message(CommandStart(), F.chat.type == ChatType.PRIVATE)
+async def cmd_start(message: Message, dialog_manager: DialogManager) -> None:
+    code = message.text.removeprefix("/start").strip()
+    async with async_session_factory() as session:
+        repo = Repository(session)
+        if code:
+            try:
+                await process_code_registration(repo, message, code)
+            except ValueError as err:
+                await message.answer(str(err))
+                return
+        user = await repo.get_user_by_tg_id(message.from_user.id)
+        if not user or (
+            not code and user.role not in {UserRole.ADMIN, UserRole.MANAGER}
+        ):
+            return
+    await dialog_manager.start(MainMenuSG.menu, mode=StartMode.RESET_STACK)
+
+
+@dp.startup()
+async def setup_taskiq(bot: Bot, *_args, **_kwargs):
+    if not taskiq_broker.is_worker_process:
+        logger.info("Setting up taskiq")
+        await taskiq_broker.startup()
+
+
+@dp.shutdown()
+async def shutdown_taskiq(bot: Bot, *_args, **_kwargs):
+    if not taskiq_broker.is_worker_process:
+        logger.info("Shutting down taskiq")
+        await taskiq_broker.shutdown()
+
+
+async def start_bot(commands: dict[str, str] | None = None) -> None:
+    dp.include_router(router)
+    dp.include_router(main_menu_dialog)
+    dp.include_router(post_dialog)
+    dp.include_router(templates_dialog)
+    dp.include_router(administration_dialog)
+
+    setup_dialogs(dp)
+
+    if commands:
+        await bot.set_my_commands(
+            [BotCommand(command=cmd, description=desc) for cmd, desc in commands.items()]
+        )
+
+    await dp.start_polling(bot)
+
