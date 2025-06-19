@@ -43,7 +43,7 @@ async def process_code_registration(message: Message, code: str) -> None:
     code_obj = await repo.get_code(code)
     if not code_obj:
         raise ValueError("Неизвестный код")
-    if code_obj.expires_at and code_obj.expires_at < datetime.datetime.utcnow():
+    if code_obj.expires_at and code_obj.expires_at < datetime.datetime.now(code_obj.expires_at.tzinfo):
         raise ValueError("Срок действия кода истёк")
     if not code_obj.is_active:
         raise ValueError("Код не активен")

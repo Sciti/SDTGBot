@@ -36,7 +36,7 @@ async def generate_code(
     
     user = await repo.get_user_by_tg_id(callback.from_user.id)
     code_obj = await repo.add_code(code=code, created_by=user.id)
-    code_obj.expires_at = code_obj.created_at + datetime.timedelta(minutes=1)
+    code_obj.expires_at = code_obj.created_at + datetime.timedelta(minutes=15)
     await repo.update_object(code_obj)
     dialog_manager.dialog_data["selected_code"] = code_obj.id
     await dialog_manager.switch_to(AdminSG.show_code)
@@ -60,7 +60,7 @@ async def code_getter(dialog_manager: DialogManager, **_kwargs):
     if (
         code_obj.is_active
         and code_obj.expires_at
-        and code_obj.expires_at < datetime.datetime.utcnow()
+        and code_obj.expires_at < datetime.datetime.now(code_obj.expires_at.tzinfo)
     ):
         code_obj.is_active = False
         await repo.update_object(code_obj)
@@ -136,14 +136,9 @@ async def delete_channel(
 
 
 async def on_channel_id(message: types.Message, message_input: MessageInput, dialog_manager: DialogManager):
-    try:
-        chat_id = int(message.text)
-    except ValueError:
-        await message.answer("Некорректный ID")
-        return
     bot: Bot = dialog_manager.middleware_data.get("bot")
     try:
-        chat = await bot.get_chat(chat_id)
+        chat = await bot.get_chat(message.text)
     except Exception:
         await message.answer("Не удалось получить информацию о чате")
         return

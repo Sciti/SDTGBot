@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Enum, ForeignKey, Integer, String, Text, DateTime, JSON
+from sqlalchemy import BigInteger, Boolean, Enum, ForeignKey, Integer, String, Text, DateTime, JSON, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -94,7 +94,7 @@ class RegistrationCode(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(length=32), unique=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.current_timestamp())
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     max_uses: Mapped[int] = mapped_column(Integer, default=1)
     used_count: Mapped[int] = mapped_column(Integer, default=0)

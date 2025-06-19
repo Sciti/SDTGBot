@@ -7,6 +7,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: botdb
+      TZ: 'GMT+3'
+      PGTZ: 'GMT+3'
     volumes:
       - sd_db_data:/var/lib/postgresql/data
     networks:
@@ -22,6 +24,8 @@ services:
       sd_net:
         aliases:
           - sd_redis
+    environment:
+      - TZ=Europe/Moscow
     ports:
       - 6379:6379
 
@@ -34,6 +38,8 @@ services:
     command: python main.py
     volumes:
       - ./logs:/app/logs
+    environment:
+      - TZ=Europe/Moscow
     networks:
       sd_net:
         aliases:
@@ -48,6 +54,8 @@ services:
     command: taskiq worker tasks:broker
     volumes:
       - ./logs:/app/logs
+    environment:
+      - TZ=Europe/Moscow
     networks:
       sd_net:
         aliases:
