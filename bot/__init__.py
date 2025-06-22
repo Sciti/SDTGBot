@@ -7,7 +7,7 @@ from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatType
 from aiogram.filters import CommandStart
-from aiogram.types import Message, BotCommand, InlineKeyboardButton
+from aiogram.types import Message, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.fsm.storage.base import DefaultKeyBuilder
@@ -38,7 +38,8 @@ key_builder = DefaultKeyBuilder(prefix="sdtg", with_destiny=True)
 storage = RedisStorage(redis_connection, key_builder)
 dp = Dispatcher(storage=storage)
 
-router = Router()
+main_router = Router()
+dialogs_router = Router()
 
 
 async def process_code_registration(message: Message, code: str) -> None:
@@ -68,7 +69,7 @@ async def process_code_registration(message: Message, code: str) -> None:
     await repo.update_object(code_obj)
 
 
-@router.message(CommandStart(), F.chat.type == ChatType.PRIVATE)
+@main_router.message(CommandStart(), F.chat.type == ChatType.PRIVATE)
 async def cmd_start(message: Message, dialog_manager: DialogManager) -> None:
     code = message.text.removeprefix("/start").strip()
     if code:
@@ -84,20 +85,21 @@ async def cmd_start(message: Message, dialog_manager: DialogManager) -> None:
         return
     await dialog_manager.start(MainMenuSG.menu, mode=StartMode.RESET_STACK)
 
-@router.message(F.is_automatic_forward)
+@main_router.message(F.is_automatic_forward)
 async def process_auto_forward(message: Message, state: FSMContext):
-    keyboard = InlineKeyboardBuilder(markup=message.reply_markup.inline_keyboard)
-    keyboard.row(
-        InlineKeyboardButton(
-            text="Комментарии",
-            url=f"https://t.me/c/{message.chat.shifted_id}/{message.message_id + 1000000}?thread={message.message_id}"
-        ),
+    markup = message.reply_markup.inline_keyboard
+    comments_button = InlineKeyboardButton(
+        text="Комментарии",
+        url=f"https://t.me/c/{message.chat.shifted_id}/{message.message_id + 1000000}?thread={message.message_id}",
+        callback_data=f"comments_{message.message_id}"
     )
+    markup.append([comments_button, ])
+    keyboard = InlineKeyboardMarkup(inline_keyboard=markup)
 
     await bot.edit_message_reply_markup(
         chat_id=message.forward_from_chat.id,
         message_id=message.forward_from_message_id,
-        reply_markup=keyboard.as_markup()
+        reply_markup=keyboard
     )
 
 
@@ -116,12 +118,16 @@ async def shutdown_taskiq(bot: Bot, *_args, **_kwargs):
 
 
 async def start_bot(commands: dict[str, str] | None = None) -> None:
-    dp.include_router(router)
-    dp.include_router(main_menu_dialog)
-    dp.include_router(post_dialog)
-    dp.include_router(templates_dialog)
-    dp.include_router(administration_dialog)
+    dialogs_router.include_routers(
+        main_menu_dialog,
+        post_dialog,
+        templates_dialog,
+        administration_dialog
+    )
+    main_router.include_router(dialogs_router)
 
+    dp.include_router(main_router)
+  
     setup_dialogs(dp)
 
     if commands:
