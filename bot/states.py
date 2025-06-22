@@ -14,6 +14,7 @@ class PostSG(StatesGroup):
 
     # creation
     create = State()
+    image = State()
     app_id = State()
     channels = State()
     schedule = State()

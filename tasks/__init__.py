@@ -54,12 +54,21 @@ async def send_post(post_id: int, bot: Bot = TaskiqDepends()) -> None:
     channels: List[Channel] = await repo.get_post_channels(post_id)
     for channel in channels:
         keyboard = InlineKeyboardBuilder(markup=[markup,])
-        msg = await bot.send_message(
-            channel.channel_id,
-            post.text,
-            parse_mode="HTML",
-            reply_markup=keyboard.as_markup()
-        )
+        if post.tg_image_id:
+            msg = await bot.send_photo(
+                channel.channel_id,
+                post.tg_image_id,
+                caption=post.text,
+                parse_mode="HTML",
+                reply_markup=keyboard.as_markup(),
+            )
+        else:
+            msg = await bot.send_message(
+                channel.channel_id,
+                post.text,
+                parse_mode="HTML",
+                reply_markup=keyboard.as_markup()
+            )
 
         if msg:
             await repo.mark_post_sent(post.id, msg.message_id)

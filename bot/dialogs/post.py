@@ -29,7 +29,33 @@ async def on_post_text(
     message: types.Message, message_input: MessageInput, dialog_manager: DialogManager
 ) -> None:
     dialog_manager.dialog_data["text"] = message.html_text or message.text
-    await dialog_manager.switch_to(PostSG.app_id)
+    if dialog_manager.dialog_data.pop("editing", False):
+        await dialog_manager.switch_to(PostSG.confirm)
+    else:
+        await dialog_manager.switch_to(PostSG.image)
+
+
+async def on_image(
+    message: types.Message, message_input: MessageInput, dialog_manager: DialogManager
+) -> None:
+    if not message.photo:
+        await message.answer("Пришлите изображение")
+        return
+    dialog_manager.dialog_data["image_id"] = message.photo[-1].file_id
+    if dialog_manager.dialog_data.pop("editing", False):
+        await dialog_manager.switch_to(PostSG.confirm)
+    else:
+        await dialog_manager.switch_to(PostSG.app_id)
+
+
+async def skip_image(
+    callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
+) -> None:
+    dialog_manager.dialog_data["image_id"] = None
+    if dialog_manager.dialog_data.pop("editing", False):
+        await dialog_manager.switch_to(PostSG.confirm)
+    else:
+        await dialog_manager.switch_to(PostSG.app_id)
 
 
 async def on_app_id_success(
@@ -39,7 +65,10 @@ async def on_app_id_success(
     app_id: int,
 ) -> None:
     dialog_manager.dialog_data["app_id"] = app_id
-    await dialog_manager.switch_to(PostSG.channels)
+    if dialog_manager.dialog_data.pop("editing", False):
+        await dialog_manager.switch_to(PostSG.confirm)
+    else:
+        await dialog_manager.switch_to(PostSG.channels)
 
 
 async def on_app_id_error(
@@ -59,13 +88,17 @@ async def on_channels_next(
     widget: Multiselect = dialog_manager.find("m_channels").widget
     selected = widget.get_checked(dialog_manager)
     dialog_manager.dialog_data["channels"] = [int(i) for i in selected]
-    await dialog_manager.switch_to(PostSG.schedule)
+    if dialog_manager.dialog_data.pop("editing", False):
+        await dialog_manager.switch_to(PostSG.confirm)
+    else:
+        await dialog_manager.switch_to(PostSG.schedule)
 
 
 async def send_now(
     callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
 ) -> None:
     dialog_manager.dialog_data["scheduled_at"] = None
+    dialog_manager.dialog_data.pop("editing", None)
     await dialog_manager.switch_to(PostSG.confirm)
 
 
@@ -75,7 +108,7 @@ async def on_date_selected(
     dialog_manager: DialogManager,
     selected_date: datetime.date,
 ) -> None:
-    dialog_manager.dialog_data["date"] = selected_date
+    dialog_manager.dialog_data["date"] = selected_date.isoformat()
     await dialog_manager.switch_to(PostSG.time)
 
 
@@ -87,7 +120,8 @@ async def on_datetime_input(
     except ValueError:
         await message.answer("Неверный формат. Пример: 21-06-2025 17:30")
         return
-    dialog_manager.dialog_data["scheduled_at"] = dt
+    dialog_manager.dialog_data["scheduled_at"] = dt.isoformat()
+    dialog_manager.dialog_data.pop("editing", None)
     await dialog_manager.switch_to(PostSG.confirm)
 
 
@@ -104,10 +138,13 @@ async def on_time_select(
     date = dialog_manager.dialog_data.get("date")
     if date:
         hour, minute = map(int, item_id.split(":"))
-        dialog_manager.dialog_data["scheduled_at"] = datetime.datetime.combine(
-            date,
+        date_obj = datetime.date.fromisoformat(date)
+        dt = datetime.datetime.combine(
+            date_obj,
             datetime.time(hour=hour, minute=minute),
         )
+        dialog_manager.dialog_data["scheduled_at"] = dt.isoformat()
+    dialog_manager.dialog_data.pop("editing", None)
     await dialog_manager.switch_to(PostSG.confirm)
 
 
@@ -117,7 +154,43 @@ async def confirm_getter(dialog_manager: DialogManager, **_kwargs):
         "app_id": dialog_manager.dialog_data.get("app_id"),
         "channels": dialog_manager.dialog_data.get("channels", []),
         "scheduled_at": dialog_manager.dialog_data.get("scheduled_at"),
+        "image_id": dialog_manager.dialog_data.get("image_id"),
     }
+
+
+async def start_edit_text(
+    callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
+) -> None:
+    dialog_manager.dialog_data["editing"] = True
+    await dialog_manager.switch_to(PostSG.create)
+
+
+async def start_edit_image(
+    callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
+) -> None:
+    dialog_manager.dialog_data["editing"] = True
+    await dialog_manager.switch_to(PostSG.image)
+
+
+async def start_edit_app(
+    callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
+) -> None:
+    dialog_manager.dialog_data["editing"] = True
+    await dialog_manager.switch_to(PostSG.app_id)
+
+
+async def start_edit_channels(
+    callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
+) -> None:
+    dialog_manager.dialog_data["editing"] = True
+    await dialog_manager.switch_to(PostSG.channels)
+
+
+async def start_edit_time(
+    callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
+) -> None:
+    dialog_manager.dialog_data["editing"] = True
+    await dialog_manager.switch_to(PostSG.schedule)
 
 
 async def create_post(
@@ -125,11 +198,18 @@ async def create_post(
 ) -> None:
     user = await repo.get_user_by_tg_id(callback.from_user.id)
     data = dialog_manager.dialog_data
+    scheduled = data.get("scheduled_at")
+    scheduled_dt = (
+        datetime.datetime.fromisoformat(scheduled)
+        if scheduled
+        else None
+    )
     post = await repo.create_post(
         user_id=user.id,
         text=data.get("text"),
         steam_id=data.get("app_id"),
-        scheduled_at=data.get("scheduled_at"),
+        scheduled_at=scheduled_dt,
+        tg_image_id=data.get("image_id"),
     )
 
     for cid in data.get("channels", []):
@@ -153,6 +233,13 @@ creation_windows = [
         MessageInput(on_post_text),
         SwitchTo(Const("Назад"), id="c_cancel", state=PostSG.menu),
         state=PostSG.create,
+    ),
+    Window(
+        Const("Отправьте изображение или пропустите:"),
+        MessageInput(on_image),
+        Button(Const("Без картинки"), id="skip_img", on_click=skip_image),
+        Back(Const("Назад")),
+        state=PostSG.image,
     ),
     Window(
         Const("Введите app id:"),
@@ -220,11 +307,16 @@ schedule_windows = [
         Format("\nApp ID: <code>{app_id}</code>"),
         Format("Каналы: {channels}"),
         Format("Отправка: {scheduled_at}", when=F["scheduled_at"]),
+        Format("Картинка: ✅", when=F["image_id"]),
+        Format("Картинка: ❌", when=~F["image_id"]),
         Row(
-            SwitchTo(Const("Текст"), id="edit_text", state=PostSG.create),
-            SwitchTo(Const("App"), id="edit_app", state=PostSG.app_id),
-            SwitchTo(Const("Каналы"), id="edit_channels", state=PostSG.channels),
-            SwitchTo(Const("Время"), id="edit_time", state=PostSG.schedule),
+            Button(Const("Текст"), id="edit_text", on_click=start_edit_text),
+            Button(Const("Картинка"), id="edit_image", on_click=start_edit_image),
+        ),
+        Row(
+            Button(Const("App"), id="edit_app", on_click=start_edit_app),
+            Button(Const("Каналы"), id="edit_channels", on_click=start_edit_channels),
+            Button(Const("Время"), id="edit_time", on_click=start_edit_time),
         ),
         Row(
             Button(Const("Создать"), id="create_post", on_click=create_post),
