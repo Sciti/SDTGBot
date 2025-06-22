@@ -22,7 +22,6 @@ from config import settings
 from database import repository as repo
 from ..states import PostSG
 from tasks import send_post, schedule_post
-from bot import bot
 
 # MARK: creation
 
@@ -226,6 +225,7 @@ async def create_post(
         channel = await repo.get_channel_by_chat_id(cid)
         await repo.link_post_channel(post.id, channel.id)
 
+    bot = dialog_manager.middleware_data['bot']
     if post.scheduled_at:
         schedule_post(post.scheduled_at, post.id, bot)
     else:

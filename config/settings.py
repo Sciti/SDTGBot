@@ -25,10 +25,11 @@ class Settings(BaseSettings):
         "aiogram": "aiogram.log",
         "sqlalchemy.engine": "db.log",
         "urllib3": "requests.log",
+        "apscheduler": "scheduler.log"
     }
 
     BOT_COMMANDS: dict[str, str] = {
-        '/start': 'Start bot|Main menu'
+        'start': 'Start bot|Main menu'
     }
 
     model_config = SettingsConfigDict(

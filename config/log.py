@@ -49,7 +49,7 @@ def configure_logging(log_dir: str | None = None, loggers: dict[str, str] | None
         }
         logger_configs[logger_name] = {
             "level": "DEBUG",
-            "handlers": [handler_name],
+            "handlers": ["console", handler_name],
             "propagate": False,
         }
 
