@@ -39,6 +39,10 @@ async def send_post(post_id: int, bot: Bot) -> None:
         )
         for text, url in settings.POST_BUTTONS.items()
     ]
+    if post.buttons:
+        markup.extend(
+            InlineKeyboardButton(text=b["text"], url=b["url"]) for b in post.buttons
+        )
     channels: List[Channel] = await repo.get_post_channels(post_id)
     for channel in channels:
         keyboard = InlineKeyboardBuilder(markup=[markup])
@@ -48,6 +52,7 @@ async def send_post(post_id: int, bot: Bot) -> None:
                 post.tg_image_id,
                 caption=post.text,
                 parse_mode="HTML",
+                show_caption_above_media=post.caption_above,
                 reply_markup=keyboard.as_markup(),
             )
         else:

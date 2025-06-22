@@ -128,6 +128,8 @@ async def create_post(
     template_id: int | None = None,
     scheduled_at: datetime | None = None,
     tg_image_id: str | None = None,
+    caption_above: bool = False,
+    buttons: list[dict] | None = None,
 ) -> Post:
     post = Post(
         user_id=user_id,
@@ -136,6 +138,8 @@ async def create_post(
         template_id=template_id,
         scheduled_at=scheduled_at,
         tg_image_id=tg_image_id,
+        caption_above=caption_above,
+        buttons=buttons,
     )
     async with async_session_factory() as session:
         session.add(post)
