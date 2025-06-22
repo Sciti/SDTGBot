@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import datetime
 from typing import List
+from logging import getLogger
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.exceptions import TelegramBadRequest
 
 from config import settings
 from config.log import configure_logging
@@ -16,6 +18,7 @@ from database.models import Post, Channel
 
 
 scheduler = AsyncIOScheduler()
+logger = getLogger("tasks")
 
 
 def start_scheduler() -> None:
@@ -45,25 +48,35 @@ async def send_post(post_id: int, bot: Bot) -> None:
         markup.extend(
             InlineKeyboardButton(text=b["text"], url=b["url"]) for b in post.buttons
         )
+
     channels: List[Channel] = await repo.get_post_channels(post_id)
     for channel in channels:
         keyboard = InlineKeyboardBuilder(markup=[markup])
-        if post.tg_image_id:
-            msg = await bot.send_photo(
-                channel.channel_id,
-                post.tg_image_id,
-                caption=post.text,
-                parse_mode="HTML",
-                show_caption_above_media=post.caption_above,
-                reply_markup=keyboard.as_markup(),
+        try:
+            if post.tg_image_id:
+                msg = await bot.send_photo(
+                    channel.channel_id,
+                    post.tg_image_id,
+                    caption=post.text,
+                    parse_mode="HTML",
+                    show_caption_above_media=post.caption_above,
+                    reply_markup=keyboard.as_markup(),
+                )
+            else:
+                msg = await bot.send_message(
+                    channel.channel_id,
+                    post.text,
+                    parse_mode="HTML",
+                    reply_markup=keyboard.as_markup(),
+                )
+        except TelegramBadRequest as e:
+            logger.error(e, exc_info=True)
+            await bot.send_message(
+                post.author.tg_id,
+                f"Ошибка отправки поста в канал {channel.channel_name}:\n{e}",
             )
-        else:
-            msg = await bot.send_message(
-                channel.channel_id,
-                post.text,
-                parse_mode="HTML",
-                reply_markup=keyboard.as_markup(),
-            )
+            return
+        
         if msg:
             await repo.mark_post_sent(post.id, msg.message_id)
 

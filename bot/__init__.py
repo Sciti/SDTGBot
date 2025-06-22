@@ -88,6 +88,9 @@ async def cmd_start(message: Message, dialog_manager: DialogManager) -> None:
 
 @main_router.message(F.is_automatic_forward)
 async def process_auto_forward(message: Message, state: FSMContext):
+    if message.reply_markup is None:
+        return
+    
     markup = message.reply_markup.inline_keyboard
     comments_button = InlineKeyboardButton(
         text="Комментарии",

@@ -25,7 +25,8 @@ class Settings(BaseSettings):
         "aiogram": "aiogram.log",
         "sqlalchemy.engine": "db.log",
         "urllib3": "requests.log",
-        "apscheduler": "scheduler.log"
+        "apscheduler": "scheduler.log",
+        "tasks": "scheduler.log",
     }
 
     BOT_COMMANDS: dict[str, str] = {

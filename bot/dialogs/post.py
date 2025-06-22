@@ -182,16 +182,19 @@ async def confirm_getter(dialog_manager: DialogManager, **_kwargs):
             file_id=MediaId(image_id),
             show_caption_above_media=dialog_manager.dialog_data.get("caption_above", False),
         )
+
     buttons = dialog_manager.dialog_data.get("buttons")
     buttons_text = None
     if buttons:
         buttons_text = "\n".join(f"{b['text']} - {b['url']}" for b in buttons)
+
     caption_val = dialog_manager.dialog_data.get("caption_above", False)
     buttons_val = dialog_manager.dialog_data.setdefault("use_default_buttons", True)
+
     cap_checkbox: ManagedCheckbox = dialog_manager.find("cb_caption")
-    cap_checkbox.set_checked(caption_val)
+    await cap_checkbox.set_checked(caption_val)
     def_checkbox: ManagedCheckbox = dialog_manager.find("cb_def_buttons")
-    def_checkbox.set_checked(buttons_val)
+    await def_checkbox.set_checked(buttons_val)
     return {
         "text": dialog_manager.dialog_data.get("text"),
         "app_id": dialog_manager.dialog_data.get("app_id"),
@@ -393,8 +396,7 @@ schedule_windows = [
         Format("Каналы: {channels}"),
         Format("Отправка: {scheduled_at}", when=F["scheduled_at"]),
         DynamicMedia("media", when=F["image_id"]),
-        Format("Картинка: ❌", when=~F["image_id"]),
-        Format("\n{buttons}", when=F["buttons"]),
+        Format("\nДополнительные кнопки:\n{buttons}", when=F["buttons"]),
         Row(
             Button(Const("Текст"), id="edit_text", on_click=start_edit_text),
             Button(Const("Картинка"), id="edit_image", on_click=start_edit_image),
@@ -402,12 +404,12 @@ schedule_windows = [
         Row(
             Button(Const("App ID"), id="edit_app", on_click=start_edit_app),
             Button(Const("Каналы"), id="edit_channels", on_click=start_edit_channels),
-            Button(Const("Время"), id="edit_time", on_click=start_edit_time),
+            Button(Const("Время"), id="edit_time", on_click=start_edit_time, when=F["scheduled_at"]),
         ),
         Row(
             Checkbox(
-                Const("✔️ Картинка сверху"),
-                Const("Картинка снизу"),
+                Const("Текст сверху"),
+                Const("Текст снизу"),
                 id="cb_caption",
                 on_state_changed=caption_changed,
                 when=F["image_id"],
