@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 
 from aiogram import types, F
-from aiogram_dialog import Dialog, Window, DialogManager, ShowMode
+from aiogram_dialog import Dialog, Window, DialogManager, ShowMode, ChatEvent
 from aiogram_dialog.widgets.media import DynamicMedia
 from aiogram_dialog.widgets.media.dynamic import MediaAttachment
 from aiogram_dialog.api.entities import MediaId
@@ -19,6 +19,8 @@ from aiogram_dialog.widgets.kbd import (
     Multiselect,
     Select,
     Back,
+    Checkbox,
+    ManagedCheckbox,
 )
 from aiogram_dialog.widgets.text import Const, Format
 from config import settings
@@ -184,7 +186,12 @@ async def confirm_getter(dialog_manager: DialogManager, **_kwargs):
     buttons_text = None
     if buttons:
         buttons_text = "\n".join(f"{b['text']} - {b['url']}" for b in buttons)
-    caption_button_text = "Картинка снизу" if dialog_manager.dialog_data.get("caption_above", False) else "Картинка сверху"
+    caption_val = dialog_manager.dialog_data.get("caption_above", False)
+    buttons_val = dialog_manager.dialog_data.setdefault("use_default_buttons", True)
+    cap_checkbox: ManagedCheckbox = dialog_manager.find("cb_caption")
+    cap_checkbox.set_checked(caption_val)
+    def_checkbox: ManagedCheckbox = dialog_manager.find("cb_def_buttons")
+    def_checkbox.set_checked(buttons_val)
     return {
         "text": dialog_manager.dialog_data.get("text"),
         "app_id": dialog_manager.dialog_data.get("app_id"),
@@ -194,7 +201,6 @@ async def confirm_getter(dialog_manager: DialogManager, **_kwargs):
         "caption_above": dialog_manager.dialog_data.get("caption_above", False),
         "buttons": buttons_text,
         "media": media,
-        "caption_button_text": caption_button_text,
     }
 
 
@@ -233,12 +239,18 @@ async def start_edit_time(
     await dialog_manager.switch_to(PostSG.schedule)
 
 
-async def toggle_caption(
-    callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
+async def caption_changed(
+    event: ChatEvent, checkbox: ManagedCheckbox, manager: DialogManager
 ) -> None:
-    current = dialog_manager.dialog_data.get("caption_above", False)
-    dialog_manager.dialog_data["caption_above"] = not current
-    await dialog_manager.switch_to(PostSG.confirm, show_mode=ShowMode.EDIT)
+    manager.dialog_data["caption_above"] = checkbox.is_checked()
+    await manager.switch_to(PostSG.confirm, show_mode=ShowMode.EDIT)
+
+
+async def default_buttons_changed(
+    event: ChatEvent, checkbox: ManagedCheckbox, manager: DialogManager
+) -> None:
+    manager.dialog_data["use_default_buttons"] = checkbox.is_checked()
+    await manager.switch_to(PostSG.confirm, show_mode=ShowMode.EDIT)
 
 
 async def start_edit_buttons(
@@ -280,6 +292,7 @@ async def create_post(
         scheduled_at=scheduled_dt,
         tg_image_id=data.get("image_id"),
         caption_above=data.get("caption_above", False),
+        use_default_buttons=data.get("use_default_buttons", True),
         buttons=data.get("buttons"),
     )
 
@@ -392,7 +405,21 @@ schedule_windows = [
             Button(Const("Время"), id="edit_time", on_click=start_edit_time),
         ),
         Row(
-            Button(Format("{caption_button_text}"), id="toggle_cap", on_click=toggle_caption, when=F["image_id"]),
+            Checkbox(
+                Const("✔️ Картинка сверху"),
+                Const("Картинка снизу"),
+                id="cb_caption",
+                on_state_changed=caption_changed,
+                when=F["image_id"],
+            ),
+            Checkbox(
+                Const("✔️ Steam кнопки"),
+                Const("Без Steam кнопок"),
+                id="cb_def_buttons",
+                on_state_changed=default_buttons_changed,
+            ),
+        ),
+        Row(
             Button(Const("Добавить кнопки"), id="edit_buttons", on_click=start_edit_buttons),
         ),
         Row(
