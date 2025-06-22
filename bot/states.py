@@ -11,7 +11,17 @@ class PostSG(StatesGroup):
     """Post management dialog states."""
 
     menu = State()
+
+    # creation
     create = State()
+    app_id = State()
+    channels = State()
+    schedule = State()
+    calendar = State()
+    time = State()
+    confirm = State()
+
+    # management
     review = State()
     reschedule = State()
     edit = State()

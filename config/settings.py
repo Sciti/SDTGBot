@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     REDIS_DB: int = 1
     TASKIQ_REDIS_DB: int = 2
 
+    POST_TIME_OPTIONS: list[str] = ["10:00", "14:00", "18:00"]
+
     LOG_DIR: str = "logs"
 
     LOGGERS: dict[str, str] = {

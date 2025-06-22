@@ -13,7 +13,7 @@ from aiogram.fsm.storage.base import DefaultKeyBuilder
 from aiogram_dialog import DialogManager, setup_dialogs, StartMode
 
 from bot.dialogs.menu import main_menu_dialog
-from bot.dialogs.post import post_dialog
+from bot.dialogs.post import dialog as post_dialog
 from bot.dialogs.templates import templates_dialog
 from bot.dialogs.administration import administration_dialog
 from bot.states import MainMenuSG
