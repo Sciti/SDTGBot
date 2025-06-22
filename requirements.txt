@@ -9,7 +9,4 @@ asyncpg
 python-dotenv
 pydantic
 pydantic-settings
-taskiq
-taskiq-redis
-taskiq-aio-pika
-taskiq-aiogram
+apscheduler
