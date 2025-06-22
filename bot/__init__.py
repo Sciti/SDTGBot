@@ -70,6 +70,7 @@ async def process_code_registration(message: Message, code: str) -> None:
 
 
 @main_router.message(CommandStart(), F.chat.type == ChatType.PRIVATE)
+@main_router.message(F.text=="/menu", F.chat.type == ChatType.PRIVATE)
 async def cmd_start(message: Message, dialog_manager: DialogManager) -> None:
     code = message.text.removeprefix("/start").strip()
     if code:

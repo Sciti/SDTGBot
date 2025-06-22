@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 
 from aiogram import types, F
-from aiogram_dialog import Dialog, Window, DialogManager
+from aiogram_dialog import Dialog, Window, DialogManager, ShowMode
 from aiogram_dialog.widgets.media import DynamicMedia
 from aiogram_dialog.widgets.media.dynamic import MediaAttachment
 from aiogram_dialog.api.entities import MediaId
@@ -178,8 +178,6 @@ async def confirm_getter(dialog_manager: DialogManager, **_kwargs):
         media = MediaAttachment(
             ContentType.PHOTO,
             file_id=MediaId(image_id),
-            caption=dialog_manager.dialog_data.get("text"),
-            parse_mode="HTML",
             show_caption_above_media=dialog_manager.dialog_data.get("caption_above", False),
         )
     buttons = dialog_manager.dialog_data.get("buttons")
@@ -240,7 +238,7 @@ async def toggle_caption(
 ) -> None:
     current = dialog_manager.dialog_data.get("caption_above", False)
     dialog_manager.dialog_data["caption_above"] = not current
-    await dialog_manager.refresh()
+    await dialog_manager.switch_to(PostSG.confirm, show_mode=ShowMode.EDIT)
 
 
 async def start_edit_buttons(
@@ -389,13 +387,13 @@ schedule_windows = [
             Button(Const("Картинка"), id="edit_image", on_click=start_edit_image),
         ),
         Row(
-            Button(Const("App"), id="edit_app", on_click=start_edit_app),
+            Button(Const("App ID"), id="edit_app", on_click=start_edit_app),
             Button(Const("Каналы"), id="edit_channels", on_click=start_edit_channels),
             Button(Const("Время"), id="edit_time", on_click=start_edit_time),
         ),
         Row(
             Button(Format("{caption_button_text}"), id="toggle_cap", on_click=toggle_caption, when=F["image_id"]),
-            Button(Const("Кнопки"), id="edit_buttons", on_click=start_edit_buttons),
+            Button(Const("Добавить кнопки"), id="edit_buttons", on_click=start_edit_buttons),
         ),
         Row(
             Button(Const("Создать"), id="create_post", on_click=create_post),
