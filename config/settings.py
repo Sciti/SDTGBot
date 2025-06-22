@@ -9,7 +9,6 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://redis:6379"
     REDIS_DB: int = 1
-    TASKIQ_REDIS_DB: int = 2
 
     POST_TIME_OPTIONS: list[str] = ["10:00", "14:00", "18:00"]
     POST_BUTTONS: dict[str, str] = {
@@ -26,7 +25,6 @@ class Settings(BaseSettings):
         "aiogram": "aiogram.log",
         "sqlalchemy.engine": "db.log",
         "urllib3": "requests.log",
-        "taskiq": "taskiq.log",
     }
 
     BOT_COMMANDS: dict[str, str] = {

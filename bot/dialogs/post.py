@@ -21,7 +21,8 @@ from config import settings
 
 from database import repository as repo
 from ..states import PostSG
-from tasks import send_post, redis_source
+from tasks import send_post, schedule_post
+from bot import bot
 
 # MARK: creation
 
@@ -226,9 +227,9 @@ async def create_post(
         await repo.link_post_channel(post.id, channel.id)
 
     if post.scheduled_at:
-        await send_post.schedule_by_time(redis_source, post.scheduled_at, post.id)
+        schedule_post(post.scheduled_at, post.id, bot)
     else:
-        await send_post.kiq(post.id)
+        await send_post(post.id, bot)
 
     await callback.message.answer("Пост создан")
     await dialog_manager.done()

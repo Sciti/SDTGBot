@@ -23,7 +23,7 @@ from database.models import UserRole
 from database import redis as redis_connection
 from database import repository as repo
 from config import settings
-from tasks import broker as taskiq_broker
+from tasks import scheduler, start_scheduler
 
 
 logger = getLogger("bot")
@@ -104,17 +104,16 @@ async def process_auto_forward(message: Message, state: FSMContext):
 
 
 @dp.startup()
-async def setup_taskiq(bot: Bot, *_args, **_kwargs):
-    if not taskiq_broker.is_worker_process:
-        logger.info("Setting up taskiq")
-        await taskiq_broker.startup()
+async def setup_scheduler(bot: Bot, *_args, **_kwargs):
+    logger.info("Starting scheduler")
+    start_scheduler()
 
 
 @dp.shutdown()
-async def shutdown_taskiq(bot: Bot, *_args, **_kwargs):
-    if not taskiq_broker.is_worker_process:
-        logger.info("Shutting down taskiq")
-        await taskiq_broker.shutdown()
+async def shutdown_scheduler(bot: Bot, *_args, **_kwargs):
+    logger.info("Shutting down scheduler")
+    if scheduler.running:
+        scheduler.shutdown()
 
 
 async def start_bot(commands: dict[str, str] | None = None) -> None:

@@ -15,7 +15,7 @@ Build and run the services with docker compose:
 docker compose up --build
 ```
 
-This will start the bot, Redis broker, PostgreSQL database and a background worker.
+This will start the bot, Redis broker and PostgreSQL database.
 
 All services are connected to a custom Docker network `sd_net`. Each container is
 also reachable via an alias prefixed with `sd_` (for example `sd_db` for the
