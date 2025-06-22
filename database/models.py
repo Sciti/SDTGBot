@@ -77,6 +77,7 @@ class Post(Base):
     tg_message_id: Mapped[int | None] = mapped_column(BigInteger)
     tg_image_id: Mapped[str | None] = mapped_column(String(length=255))
     caption_above: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    use_default_buttons: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     buttons: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

@@ -31,14 +31,16 @@ async def send_post(post_id: int, bot: Bot) -> None:
     if not post:
         return
 
-    markup = [
-        InlineKeyboardButton(
-            text=text,
-            url=url.format(app_id=post.steam_id),
-            callback_data=f"link_{text.lower()}:{post.steam_id}",
+    markup = []
+    if post.use_default_buttons and post.steam_id:
+        markup.extend(
+            InlineKeyboardButton(
+                text=text,
+                url=url.format(app_id=post.steam_id),
+                callback_data=f"link_{text.lower()}:{post.steam_id}",
+            )
+            for text, url in settings.POST_BUTTONS.items()
         )
-        for text, url in settings.POST_BUTTONS.items()
-    ]
     if post.buttons:
         markup.extend(
             InlineKeyboardButton(text=b["text"], url=b["url"]) for b in post.buttons
