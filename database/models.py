@@ -75,7 +75,7 @@ class Post(Base):
     steam_id: Mapped[int | None] = mapped_column(BigInteger)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     tg_message_id: Mapped[int | None] = mapped_column(BigInteger)
-    tg_image_id: Mapped[int | None] = mapped_column(BigInteger)
+    tg_image_id: Mapped[str | None] = mapped_column(String(length=255))
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))

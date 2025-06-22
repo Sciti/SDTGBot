@@ -127,6 +127,7 @@ async def create_post(
     steam_id: int | None = None,
     template_id: int | None = None,
     scheduled_at: datetime | None = None,
+    tg_image_id: str | None = None,
 ) -> Post:
     post = Post(
         user_id=user_id,
@@ -134,6 +135,7 @@ async def create_post(
         steam_id=steam_id,
         template_id=template_id,
         scheduled_at=scheduled_at,
+        tg_image_id=tg_image_id,
     )
     async with async_session_factory() as session:
         session.add(post)
