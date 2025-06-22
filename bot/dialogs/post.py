@@ -4,6 +4,11 @@ import datetime
 
 from aiogram import types, F
 from aiogram_dialog import Dialog, Window, DialogManager
+from aiogram_dialog.widgets.media import DynamicMedia
+from aiogram_dialog.widgets.media.dynamic import MediaAttachment
+from aiogram_dialog.api.entities import MediaId
+from aiogram.enums import ContentType
+from aiogram.enums import ParseMode
 from aiogram_dialog.widgets.input import MessageInput, TextInput
 from aiogram_dialog.widgets.kbd import (
     Calendar,
@@ -16,7 +21,6 @@ from aiogram_dialog.widgets.kbd import (
     Back,
 )
 from aiogram_dialog.widgets.text import Const, Format
-from aiogram.enums import ParseMode
 from config import settings
 
 from database import repository as repo
@@ -108,6 +112,9 @@ async def on_date_selected(
     dialog_manager: DialogManager,
     selected_date: datetime.date,
 ) -> None:
+    if selected_date < datetime.date.today():
+        await callback.answer("Прошедшая дата", show_alert=True)
+        return
     dialog_manager.dialog_data["date"] = selected_date.isoformat()
     await dialog_manager.switch_to(PostSG.time)
 
@@ -128,7 +135,11 @@ async def on_datetime_input(
     except ValueError:
         await message.answer("Неверный формат. Пример: 17:30")
         return
-    
+
+    if dt <= datetime.datetime.now():
+        await message.answer("Дата уже прошла")
+        return
+
     dialog_manager.dialog_data["scheduled_at"] = dt.isoformat()
     dialog_manager.dialog_data.pop("editing", None)
     await dialog_manager.switch_to(PostSG.confirm)
@@ -152,18 +163,40 @@ async def on_time_select(
             date_obj,
             datetime.time(hour=hour, minute=minute),
         )
+        if dt <= datetime.datetime.now():
+            await callback.answer("Время уже прошло", show_alert=True)
+            return
         dialog_manager.dialog_data["scheduled_at"] = dt.isoformat()
     dialog_manager.dialog_data.pop("editing", None)
     await dialog_manager.switch_to(PostSG.confirm)
 
 
 async def confirm_getter(dialog_manager: DialogManager, **_kwargs):
+    image_id = dialog_manager.dialog_data.get("image_id")
+    media = None
+    if image_id:
+        media = MediaAttachment(
+            ContentType.PHOTO,
+            file_id=MediaId(image_id),
+            caption=dialog_manager.dialog_data.get("text"),
+            parse_mode="HTML",
+            show_caption_above_media=dialog_manager.dialog_data.get("caption_above", False),
+        )
+    buttons = dialog_manager.dialog_data.get("buttons")
+    buttons_text = None
+    if buttons:
+        buttons_text = "\n".join(f"{b['text']} - {b['url']}" for b in buttons)
+    caption_button_text = "Картинка снизу" if dialog_manager.dialog_data.get("caption_above", False) else "Картинка сверху"
     return {
         "text": dialog_manager.dialog_data.get("text"),
         "app_id": dialog_manager.dialog_data.get("app_id"),
         "channels": dialog_manager.dialog_data.get("channels", []),
         "scheduled_at": dialog_manager.dialog_data.get("scheduled_at"),
-        "image_id": dialog_manager.dialog_data.get("image_id"),
+        "image_id": image_id,
+        "caption_above": dialog_manager.dialog_data.get("caption_above", False),
+        "buttons": buttons_text,
+        "media": media,
+        "caption_button_text": caption_button_text,
     }
 
 
@@ -202,6 +235,35 @@ async def start_edit_time(
     await dialog_manager.switch_to(PostSG.schedule)
 
 
+async def toggle_caption(
+    callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
+) -> None:
+    current = dialog_manager.dialog_data.get("caption_above", False)
+    dialog_manager.dialog_data["caption_above"] = not current
+    await dialog_manager.refresh()
+
+
+async def start_edit_buttons(
+    callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
+) -> None:
+    dialog_manager.dialog_data["editing"] = True
+    await dialog_manager.switch_to(PostSG.buttons)
+
+
+async def on_buttons_input(
+    message: types.Message, widget: MessageInput, dialog_manager: DialogManager
+) -> None:
+    buttons = []
+    for line in message.text.splitlines():
+        if "-" not in line:
+            await message.answer("Неверный формат. Пример: Text - https://url")
+            return
+        text, url = map(str.strip, line.split("-", 1))
+        buttons.append({"text": text, "url": url})
+    dialog_manager.dialog_data["buttons"] = buttons
+    await dialog_manager.switch_to(PostSG.confirm)
+
+
 async def create_post(
     callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
 ) -> None:
@@ -219,6 +281,8 @@ async def create_post(
         steam_id=data.get("app_id"),
         scheduled_at=scheduled_dt,
         tg_image_id=data.get("image_id"),
+        caption_above=data.get("caption_above", False),
+        buttons=data.get("buttons"),
     )
 
     for cid in data.get("channels", []):
@@ -317,8 +381,9 @@ schedule_windows = [
         Format("\nApp ID: <code>{app_id}</code>"),
         Format("Каналы: {channels}"),
         Format("Отправка: {scheduled_at}", when=F["scheduled_at"]),
-        Format("Картинка: ✅", when=F["image_id"]),
+        DynamicMedia("media", when=F["image_id"]),
         Format("Картинка: ❌", when=~F["image_id"]),
+        Format("\n{buttons}", when=F["buttons"]),
         Row(
             Button(Const("Текст"), id="edit_text", on_click=start_edit_text),
             Button(Const("Картинка"), id="edit_image", on_click=start_edit_image),
@@ -329,12 +394,25 @@ schedule_windows = [
             Button(Const("Время"), id="edit_time", on_click=start_edit_time),
         ),
         Row(
+            Button(Format("{caption_button_text}"), id="toggle_cap", on_click=toggle_caption, when=F["image_id"]),
+            Button(Const("Кнопки"), id="edit_buttons", on_click=start_edit_buttons),
+        ),
+        Row(
             Button(Const("Создать"), id="create_post", on_click=create_post),
             SwitchTo(Const("Отмена"), id="conf_cancel", state=PostSG.menu),
         ),
         parse_mode=ParseMode.HTML,
         state=PostSG.confirm,
         getter=confirm_getter,
+    ),
+]
+
+buttons_windows = [
+    Window(
+        Const("Введите дополнительные кнопки в формате 'Text - URL' каждая с новой строки:"),
+        MessageInput(on_buttons_input),
+        Back(Const("Назад")),
+        state=PostSG.buttons,
     ),
 ]
 
@@ -377,6 +455,7 @@ dialog = Dialog(
     ),
     *creation_windows,
     *schedule_windows,
+    *buttons_windows,
     *review_windows,
     *edit_windows,
 )

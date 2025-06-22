@@ -20,6 +20,7 @@ class PostSG(StatesGroup):
     schedule = State()
     calendar = State()
     time = State()
+    buttons = State()
     confirm = State()
 
     # management
