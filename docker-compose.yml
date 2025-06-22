@@ -61,6 +61,22 @@ services:
         aliases:
           - sd_worker
 
+  scheduler:
+    build: .
+    env_file: config/env/.env.docker
+    depends_on:
+      - db
+      - redis
+    command: taskiq scheduler tasks:scheduler
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - TZ=Europe/Moscow
+    networks:
+      sd_net:
+        aliases:
+          - sd_scheduler
+
 volumes:
   sd_db_data:
 

@@ -158,6 +158,18 @@ async def mark_post_sent(post_id: int, tg_message_id: int) -> None:
             await session.commit()
 
 
+async def get_post_channels(post_id: int) -> list[Channel]:
+    """Return channels linked with the post."""
+    stmt = (
+        select(Channel)
+        .join(PostChannel, Channel.id == PostChannel.channel_id)
+        .where(PostChannel.post_id == post_id)
+    )
+    async with async_session_factory() as session:
+        result = await session.scalars(stmt)
+        return list(result)
+
+
 # Registration codes
 async def add_code(
     code: str,
