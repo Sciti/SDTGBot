@@ -115,11 +115,20 @@ async def on_date_selected(
 async def on_datetime_input(
     message: types.Message, widget: MessageInput, dialog_manager: DialogManager
 ) -> None:
+    current_state = dialog_manager.middleware_data.get("aiogd_context").state
+
     try:
-        dt = datetime.datetime.strptime(message.text, "%d-%m-%Y %H:%M")
+        if current_state == PostSG.calendar:
+            dt = datetime.datetime.strptime(message.text, "%d-%m-%Y")
+        elif current_state == PostSG.time:
+            dt = datetime.datetime.combine(
+                datetime.date.fromisoformat(dialog_manager.dialog_data['date']),
+                datetime.datetime.strptime(message.text, "%H:%M").time()
+            )
     except ValueError:
-        await message.answer("Неверный формат. Пример: 21-06-2025 17:30")
+        await message.answer("Неверный формат. Пример: 17:30")
         return
+    
     dialog_manager.dialog_data["scheduled_at"] = dt.isoformat()
     dialog_manager.dialog_data.pop("editing", None)
     await dialog_manager.switch_to(PostSG.confirm)
@@ -281,7 +290,7 @@ schedule_windows = [
     ),
     Window(
         Const("Выберите дату."),
-        Const("Дату и время можно отправить собщением в формате: 21-06-2025 17:30"),
+        Const("Дату можно отправить собщением в формате: 21-06-2025"),
         Calendar(id="cal", on_click=on_date_selected),
         MessageInput(on_datetime_input),
         SwitchTo(Const("Отмена"), id="cal_cancel", state=PostSG.menu),
@@ -289,7 +298,7 @@ schedule_windows = [
     ),
     Window(
         Const("Выберите время."),
-        Const("Дату и время можно отправить собщением в формате: 21-06-2025 17:30"),
+        Const("Время можно отправить собщением в формате: 17:30"),
         Select(
             Format("{item}"),
             id="sel_time",

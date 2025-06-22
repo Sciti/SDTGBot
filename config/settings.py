@@ -29,7 +29,9 @@ class Settings(BaseSettings):
         "taskiq": "taskiq.log",
     }
 
-    BOT_COMMANDS: dict[str, str] = {}
+    BOT_COMMANDS: dict[str, str] = {
+        '/start': 'Start bot|Main menu'
+    }
 
     model_config = SettingsConfigDict(
         env_file=os.environ.get("ENV_FILE", ".env"),
