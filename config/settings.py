@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     TASKIQ_REDIS_DB: int = 2
 
     POST_TIME_OPTIONS: list[str] = ["10:00", "14:00", "18:00"]
+    POST_BUTTONS: dict[str, str] = {
+        "Steam": "https://store.steampowered.com/app/{app_id}/",
+        "ProtonDB": "https://www.protondb.com/app/{app_id}/",
+        "SteamDB": "https://steamdb.info/app/{app_id}/charts/",
+    }
+
 
     LOG_DIR: str = "logs"
 

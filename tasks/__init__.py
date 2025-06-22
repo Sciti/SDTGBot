@@ -1,4 +1,8 @@
+from typing import List
+
 from aiogram import Bot
+from aiogram.types import InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from taskiq import TaskiqEvents, TaskiqState, TaskiqScheduler, TaskiqDepends
 from taskiq_redis import (
     RedisAsyncResultBackend,
@@ -7,6 +11,7 @@ from taskiq_redis import (
 )
 import taskiq_aiogram
 from database import repository as repo
+from database.models import Post, Channel, ChannelType
 
 from config import settings
 from config.log import configure_logging
@@ -35,14 +40,29 @@ taskiq_aiogram.init(broker, "bot:dp", "bot:bot")
 @broker.task
 async def send_post(post_id: int, bot: Bot = TaskiqDepends()) -> None:
     """Send post text to selected channels."""
-    post = await repo.get_post(post_id)
+    post: Post = await repo.get_post(post_id)
     if not post:
         return
-    channels = await repo.get_post_channels(post_id)
+    
+    markup = [
+        InlineKeyboardButton(
+            text=text,
+            url=url.format(app_id=post.steam_id),
+            callback_data=f"link_{text.lower()}:{post.steam_id}",
+        ) for text, url in settings.POST_BUTTONS.items()
+    ]
+    channels: List[Channel] = await repo.get_post_channels(post_id)
     for channel in channels:
-        msg = await bot.send_message(channel.channel_id, post.text)
-    if channels:
-        await repo.mark_post_sent(post.id, msg.message_id)
+        keyboard = InlineKeyboardBuilder(markup=[markup,])
+        msg = await bot.send_message(
+            channel.channel_id,
+            post.text,
+            parse_mode="HTML",
+            reply_markup=keyboard.as_markup()
+        )
+
+        if msg:
+            await repo.mark_post_sent(post.id, msg.message_id)
 
 
 __all__ = ["broker", "send_post", "redis_source"]

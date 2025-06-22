@@ -7,10 +7,12 @@ from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatType
 from aiogram.filters import CommandStart
-from aiogram.types import Message, BotCommand
+from aiogram.types import Message, BotCommand, InlineKeyboardButton
+from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.fsm.storage.base import DefaultKeyBuilder
 from aiogram_dialog import DialogManager, setup_dialogs, StartMode
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.dialogs.menu import main_menu_dialog
 from bot.dialogs.post import dialog as post_dialog
@@ -81,6 +83,22 @@ async def cmd_start(message: Message, dialog_manager: DialogManager) -> None:
     ):
         return
     await dialog_manager.start(MainMenuSG.menu, mode=StartMode.RESET_STACK)
+
+@router.message(F.is_automatic_forward)
+async def process_auto_forward(message: Message, state: FSMContext):
+    keyboard = InlineKeyboardBuilder(markup=message.reply_markup.inline_keyboard)
+    keyboard.row(
+        InlineKeyboardButton(
+            text="Комментарии",
+            url=f"https://t.me/c/{message.chat.shifted_id}/{message.message_id + 1000000}?thread={message.message_id}"
+        ),
+    )
+
+    await bot.edit_message_reply_markup(
+        chat_id=message.forward_from_chat.id,
+        message_id=message.forward_from_message_id,
+        reply_markup=keyboard.as_markup()
+    )
 
 
 @dp.startup()

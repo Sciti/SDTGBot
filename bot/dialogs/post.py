@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 
-from aiogram import types
+from aiogram import types, F
 from aiogram_dialog import Dialog, Window, DialogManager
 from aiogram_dialog.widgets.input import MessageInput, TextInput
 from aiogram_dialog.widgets.kbd import (
@@ -13,6 +13,7 @@ from aiogram_dialog.widgets.kbd import (
     Button,
     Multiselect,
     Select,
+    Back,
 )
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram.enums import ParseMode
@@ -23,7 +24,6 @@ from ..states import PostSG
 from tasks import send_post, redis_source
 
 # MARK: creation
-
 
 async def on_post_text(
     message: types.Message, message_input: MessageInput, dialog_manager: DialogManager
@@ -56,7 +56,7 @@ async def channels_getter(dialog_manager: DialogManager, **_kwargs):
 async def on_channels_next(
     callback: types.CallbackQuery, button: Button, dialog_manager: DialogManager
 ) -> None:
-    widget = dialog_manager.find("m_channels")
+    widget: Multiselect = dialog_manager.find("m_channels").widget
     selected = widget.get_checked(dialog_manager)
     dialog_manager.dialog_data["channels"] = [int(i) for i in selected]
     await dialog_manager.switch_to(PostSG.schedule)
@@ -131,12 +131,16 @@ async def create_post(
         steam_id=data.get("app_id"),
         scheduled_at=data.get("scheduled_at"),
     )
+
     for cid in data.get("channels", []):
-        await repo.link_post_channel(post.id, cid)
+        channel = await repo.get_channel_by_chat_id(cid)
+        await repo.link_post_channel(post.id, channel.id)
+
     if post.scheduled_at:
         await send_post.schedule_by_time(redis_source, post.scheduled_at, post.id)
     else:
         await send_post.kiq(post.id)
+
     await callback.message.answer("Пост создан")
     await dialog_manager.done()
 
@@ -151,27 +155,28 @@ creation_windows = [
         state=PostSG.create,
     ),
     Window(
-        Const("Введите Steam app id:"),
+        Const("Введите app id:"),
         TextInput(
             id="app_id",
             type_factory=int,
             on_success=on_app_id_success,
             on_error=on_app_id_error,
         ),
-        SwitchTo(Const("Назад"), id="a_cancel", state=PostSG.menu),
+        Back(Const("Назад")),
         state=PostSG.app_id,
     ),
     Window(
         Const("Куда отправлять пост?"),
         Multiselect(
-            Format("{item.title} ({item.channel_id})"),
+            checked_text=Format("✔️ {item.title} ({item.channel_id})"),
+            unchecked_text=Format("{item.title} ({item.channel_id})"),
             id="m_channels",
             items="channels",
             item_id_getter=lambda c: c.channel_id,
             type_factory=int,
         ),
         Button(Const("Далее"), id="ch_next", on_click=on_channels_next),
-        SwitchTo(Const("Назад"), id="ch_cancel", state=PostSG.menu),
+        Back(Const("Назад")),
         state=PostSG.channels,
         getter=channels_getter,
     ),
@@ -188,14 +193,16 @@ schedule_windows = [
         state=PostSG.schedule,
     ),
     Window(
-        Const("Выберите дату. Пример: 21-06-2025 17:30"),
+        Const("Выберите дату."),
+        Const("Дату и время можно отправить собщением в формате: 21-06-2025 17:30"),
         Calendar(id="cal", on_click=on_date_selected),
         MessageInput(on_datetime_input),
         SwitchTo(Const("Отмена"), id="cal_cancel", state=PostSG.menu),
         state=PostSG.calendar,
     ),
     Window(
-        Const("Выберите время. Пример: 21-06-2025 17:30"),
+        Const("Выберите время."),
+        Const("Дату и время можно отправить собщением в формате: 21-06-2025 17:30"),
         Select(
             Format("{item}"),
             id="sel_time",
@@ -209,10 +216,10 @@ schedule_windows = [
         state=PostSG.time,
     ),
     Window(
-        Format("Текст:\n{text}", parse_mode=ParseMode.HTML),
-        Format("App ID: {app_id}"),
+        Format("Текст:\n{text}"),
+        Format("\nApp ID: <code>{app_id}</code>"),
         Format("Каналы: {channels}"),
-        Format("Отправка: {scheduled_at}"),
+        Format("Отправка: {scheduled_at}", when=F["scheduled_at"]),
         Row(
             SwitchTo(Const("Текст"), id="edit_text", state=PostSG.create),
             SwitchTo(Const("App"), id="edit_app", state=PostSG.app_id),
@@ -223,6 +230,7 @@ schedule_windows = [
             Button(Const("Создать"), id="create_post", on_click=create_post),
             SwitchTo(Const("Отмена"), id="conf_cancel", state=PostSG.menu),
         ),
+        parse_mode=ParseMode.HTML,
         state=PostSG.confirm,
         getter=confirm_getter,
     ),
@@ -248,6 +256,8 @@ edit_windows = [
         state=PostSG.reschedule,
     ),
 ]
+
+
 
 dialog = Dialog(
     Window(
