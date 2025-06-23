@@ -197,6 +197,7 @@ async def confirm_getter(dialog_manager: DialogManager, **_kwargs):
     await def_checkbox.set_checked(buttons_val)
     return {
         "text": dialog_manager.dialog_data.get("text"),
+        "text_len": len(dialog_manager.dialog_data.get("text", "")),
         "app_id": dialog_manager.dialog_data.get("app_id"),
         "channels": dialog_manager.dialog_data.get("channels", []),
         "scheduled_at": dialog_manager.dialog_data.get("scheduled_at"),
@@ -395,6 +396,7 @@ schedule_windows = [
         Format("\nApp ID: <code>{app_id}</code>"),
         Format("Каналы: {channels}"),
         Format("Отправка: {scheduled_at}", when=F["scheduled_at"]),
+        Format("Колличество символов: {text_len}"),
         DynamicMedia("media", when=F["image_id"]),
         Format("\nДополнительные кнопки:\n{buttons}", when=F["buttons"]),
         Row(

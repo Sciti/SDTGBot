@@ -52,6 +52,7 @@ async def send_post(post_id: int, bot: Bot) -> None:
     channels: List[Channel] = await repo.get_post_channels(post_id)
     for channel in channels:
         keyboard = InlineKeyboardBuilder(markup=[markup])
+        keyboard.adjust(3)
         try:
             if post.tg_image_id:
                 msg = await bot.send_photo(

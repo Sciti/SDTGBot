@@ -20,6 +20,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    volumes:
+      - sd_redis_data:/data
     networks:
       sd_net:
         aliases:
@@ -48,6 +50,7 @@ services:
 
 volumes:
   sd_db_data:
+  sd_redis_data:
 
 networks:
   sd_net:
